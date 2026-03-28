@@ -16,6 +16,90 @@
       padding-bottom: 40px;
     }
 
+    /* PIN screen */
+    #pinScreen {
+      position: fixed;
+      inset: 0;
+      background: #0f0f0f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      z-index: 999;
+      padding: 32px;
+    }
+
+    #pinScreen h2 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    #pinScreen p {
+      font-size: 14px;
+      color: #555;
+      text-align: center;
+    }
+
+    .pin-dots {
+      display: flex;
+      gap: 16px;
+    }
+
+    .pin-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid #333;
+      background: transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .pin-dot.filled {
+      background: #4a9eff;
+      border-color: #4a9eff;
+    }
+
+    .pin-dot.error {
+      background: #ff4a4a;
+      border-color: #ff4a4a;
+    }
+
+    .pin-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .pin-key {
+      background: #1a1a1a;
+      border: 2px solid #2a2a2a;
+      border-radius: 18px;
+      color: #fff;
+      font-size: 26px;
+      font-weight: 600;
+      padding: 22px 0;
+      cursor: pointer;
+      text-align: center;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      transition: background 0.1s, transform 0.1s;
+    }
+
+    .pin-key:active { background: #2a2a2a; transform: scale(0.94); }
+    .pin-key.del { font-size: 20px; color: #aaa; }
+    .pin-key.empty { visibility: hidden; }
+
+    #pinError {
+      font-size: 14px;
+      color: #ff4a4a;
+      min-height: 20px;
+      text-align: center;
+    }
+
     h1 {
       font-size: 28px;
       font-weight: 700;
@@ -348,6 +432,36 @@
 </head>
 <body>
 
+  <!-- PIN screen -->
+  <div id="pinScreen">
+    <h2 id="pinTitle">Thoughts</h2>
+    <p id="pinSubtitle">Enter your PIN</p>
+    <div class="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div id="pinError"></div>
+    <div class="pin-grid">
+      <button class="pin-key" onclick="pinPress('1')">1</button>
+      <button class="pin-key" onclick="pinPress('2')">2</button>
+      <button class="pin-key" onclick="pinPress('3')">3</button>
+      <button class="pin-key" onclick="pinPress('4')">4</button>
+      <button class="pin-key" onclick="pinPress('5')">5</button>
+      <button class="pin-key" onclick="pinPress('6')">6</button>
+      <button class="pin-key" onclick="pinPress('7')">7</button>
+      <button class="pin-key" onclick="pinPress('8')">8</button>
+      <button class="pin-key" onclick="pinPress('9')">9</button>
+      <button class="pin-key empty"></button>
+      <button class="pin-key" onclick="pinPress('0')">0</button>
+      <button class="pin-key del" onclick="pinDelete()">⌫</button>
+    </div>
+  </div>
+
+  <!-- Main app (hidden until unlocked) -->
+  <div id="app" style="display:none">
+
   <h1>Thoughts</h1>
 
   <!-- Gemini API key -->
@@ -382,6 +496,8 @@
   <div class="section-title">Saved Thoughts</div>
   <div class="filter-row" id="filterRow"></div>
   <div class="thoughts-list" id="thoughtsList"></div>
+
+  </div><!-- end #app -->
 
 <script>
   const PALETTE = [
@@ -673,11 +789,85 @@
     micBtn.textContent = '🎤';
   }
 
-  // Init
-  loadApiKey();
-  renderCategories();
-  renderFilters();
-  renderThoughts();
+  // --- PIN ---
+  let pinEntry = '';
+  const PIN_KEY = 'thoughts_pin';
+
+  function pinPress(digit) {
+    if (pinEntry.length >= 4) return;
+    pinEntry += digit;
+    updatePinDots();
+    if (pinEntry.length === 4) setTimeout(checkPin, 80);
+  }
+
+  function pinDelete() {
+    pinEntry = pinEntry.slice(0, -1);
+    updatePinDots();
+    document.getElementById('pinError').textContent = '';
+  }
+
+  function updatePinDots(state) {
+    for (let i = 0; i < 4; i++) {
+      const dot = document.getElementById('d' + i);
+      dot.className = 'pin-dot';
+      if (state === 'error') dot.classList.add('error');
+      else if (i < pinEntry.length) dot.classList.add('filled');
+    }
+  }
+
+  function checkPin() {
+    const stored = localStorage.getItem(PIN_KEY);
+    if (!stored) {
+      // First time — set PIN mode
+      if (!window._pinConfirm) {
+        window._pinConfirm = pinEntry;
+        pinEntry = '';
+        document.getElementById('pinSubtitle').textContent = 'Confirm your PIN';
+        updatePinDots();
+        return;
+      }
+      if (pinEntry === window._pinConfirm) {
+        localStorage.setItem(PIN_KEY, pinEntry);
+        unlock();
+      } else {
+        window._pinConfirm = null;
+        pinEntry = '';
+        document.getElementById('pinSubtitle').textContent = 'Enter your PIN';
+        updatePinDots('error');
+        document.getElementById('pinError').textContent = 'PINs didn\'t match — try again';
+        setTimeout(() => { updatePinDots(); document.getElementById('pinError').textContent = ''; }, 1000);
+      }
+    } else {
+      if (pinEntry === stored) {
+        unlock();
+      } else {
+        pinEntry = '';
+        updatePinDots('error');
+        document.getElementById('pinError').textContent = 'Wrong PIN';
+        setTimeout(() => { updatePinDots(); document.getElementById('pinError').textContent = ''; }, 1000);
+      }
+    }
+  }
+
+  function unlock() {
+    document.getElementById('pinScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    initApp();
+  }
+
+  function initApp() {
+    loadApiKey();
+    renderCategories();
+    renderFilters();
+    renderThoughts();
+  }
+
+  // Show correct PIN prompt on load
+  if (!localStorage.getItem(PIN_KEY)) {
+    document.getElementById('pinSubtitle').textContent = 'Create a 4-digit PIN';
+  }
+
+  // Init (app init is deferred until after PIN)
 </script>
 </body>
 </html>
