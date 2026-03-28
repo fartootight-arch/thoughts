@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Thoughts</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f0f0f;
+      color: #f0f0f0;
+      min-height: 100vh;
+      padding: 16px;
+      padding-bottom: 40px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+
+    /* API key banner */
+    #apiBanner {
+      background: #1a1a1a;
+      border: 2px solid #333;
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 20px;
+    }
+
+    #apiBanner .banner-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #555;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    #apiBanner .banner-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    #apiKeyInput {
+      flex: 1;
+      background: #0f0f0f;
+      border: 2px solid #2a2a2a;
+      border-radius: 50px;
+      color: #fff;
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      font-family: monospace;
+    }
+
+    #apiKeyInput::placeholder { color: #444; }
+    #apiKeyInput:focus { border-color: #555; }
+
+    #saveKeyBtn {
+      background: #2a2a2a;
+      border: 2px solid #333;
+      border-radius: 50px;
+      color: #aaa;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 16px;
+      cursor: pointer;
+      white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #saveKeyBtn:active { transform: scale(0.95); }
+    #saveKeyBtn.saved { border-color: #4aff9e; color: #4aff9e; }
+
+    /* Categories */
+    .categories {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .cat-btn {
+      padding: 14px 20px;
+      border-radius: 50px;
+      border: 2px solid #333;
+      background: #1a1a1a;
+      color: #aaa;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .cat-btn.active {
+      background: var(--color);
+      border-color: var(--color);
+      color: #fff;
+    }
+
+    .cat-btn:active { transform: scale(0.95); }
+
+    /* Add category */
+    .add-cat-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .add-cat-row input {
+      flex: 1;
+      background: #1a1a1a;
+      border: 2px solid #333;
+      border-radius: 50px;
+      color: #fff;
+      font-size: 16px;
+      padding: 12px 18px;
+      outline: none;
+    }
+
+    .add-cat-row input::placeholder { color: #555; }
+    .add-cat-row input:focus { border-color: #555; }
+
+    .add-cat-row button {
+      background: #2a2a2a;
+      border: 2px solid #333;
+      border-radius: 50px;
+      color: #aaa;
+      font-size: 22px;
+      width: 50px;
+      height: 50px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .add-cat-row button:active { transform: scale(0.95); }
+
+    /* Textarea */
+    textarea {
+      width: 100%;
+      background: #1a1a1a;
+      border: 2px solid #333;
+      border-radius: 20px;
+      color: #fff;
+      font-size: 18px;
+      line-height: 1.5;
+      padding: 16px;
+      resize: none;
+      outline: none;
+      min-height: 130px;
+      font-family: inherit;
+    }
+
+    textarea::placeholder { color: #444; }
+    textarea:focus { border-color: #555; }
+
+    /* Mic button */
+    .input-wrap {
+      position: relative;
+      margin-bottom: 10px;
+    }
+
+    .input-wrap textarea {
+      padding-bottom: 64px;
+    }
+
+    #micBtn {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: none;
+      background: #2a2a2a;
+      font-size: 24px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #micBtn:active { transform: scale(0.93); }
+
+    #micBtn.recording {
+      background: #ff4a4a;
+      animation: pulse 1s infinite;
+    }
+
+    #micBtn.transcribing {
+      background: #ffb84a;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255,74,74,0.5); }
+      50%       { box-shadow: 0 0 0 12px rgba(255,74,74,0); }
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    #micStatus {
+      font-size: 13px;
+      color: #888;
+      min-height: 20px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    #micStatus.error { color: #ff4a4a; }
+
+    /* Save button */
+    #saveBtn {
+      width: 100%;
+      padding: 20px;
+      border-radius: 20px;
+      border: none;
+      background: #4a9eff;
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, transform 0.1s;
+      margin-bottom: 30px;
+    }
+
+    #saveBtn:disabled {
+      background: #2a2a2a;
+      color: #444;
+      cursor: default;
+    }
+
+    #saveBtn:not(:disabled):active { transform: scale(0.97); }
+
+    /* Filter bar */
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #555;
+      margin-bottom: 12px;
+    }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .filter-btn {
+      padding: 10px 16px;
+      border-radius: 50px;
+      border: 2px solid #2a2a2a;
+      background: transparent;
+      color: #666;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .filter-btn.active {
+      border-color: var(--color, #4a9eff);
+      color: var(--color, #4a9eff);
+    }
+
+    /* Thoughts list */
+    .thoughts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .thought-card {
+      background: #1a1a1a;
+      border-left: 4px solid var(--color);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .thought-meta {
+      font-size: 11px;
+      color: #444;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .thought-cat-label {
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--color);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .thought-text {
+      font-size: 17px;
+      line-height: 1.5;
+      color: #e0e0e0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      color: #333;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 0 0 8px;
+      line-height: 1;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .delete-btn:active { color: #ff4a4a; }
+
+    .empty-state {
+      text-align: center;
+      color: #333;
+      font-size: 16px;
+      padding: 40px 0;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #222;
+      margin: 24px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Thoughts</h1>
+
+  <!-- Gemini API key -->
+  <div id="apiBanner">
+    <div class="banner-label">Gemini API Key</div>
+    <div class="banner-row">
+      <input type="password" id="apiKeyInput" placeholder="Paste your API key...">
+      <button id="saveKeyBtn" onclick="saveApiKey()">Save</button>
+    </div>
+  </div>
+
+  <!-- Categories picker -->
+  <div class="categories" id="categories"></div>
+
+  <!-- Add new category -->
+  <div class="add-cat-row">
+    <input type="text" id="newCatInput" placeholder="New category..." maxlength="20">
+    <button onclick="addCategory()" title="Add category">+</button>
+  </div>
+
+  <!-- Input area -->
+  <div class="input-wrap">
+    <textarea id="thoughtInput" placeholder="What's on your mind?" rows="5"></textarea>
+    <button id="micBtn" onclick="toggleMic()" title="Speak your thought">🎤</button>
+  </div>
+  <div id="micStatus"></div>
+  <button id="saveBtn" onclick="saveThought()" disabled>Save Thought</button>
+
+  <hr class="divider">
+
+  <!-- Thoughts list -->
+  <div class="section-title">Saved Thoughts</div>
+  <div class="filter-row" id="filterRow"></div>
+  <div class="thoughts-list" id="thoughtsList"></div>
+
+<script>
+  const PALETTE = [
+    '#4a9eff', '#ff6b4a', '#4aff9e', '#ffb84a',
+    '#c44aff', '#ff4a9e', '#4affee', '#ffd44a'
+  ];
+
+  let data = JSON.parse(localStorage.getItem('thoughts_app') || 'null') || {
+    categories: ['Idea', 'Feeling', 'Todo', 'Random'],
+    thoughts: []
+  };
+
+  let selectedCat = null;
+  let filterCat = 'all';
+
+  // --- API Key ---
+  function loadApiKey() {
+    const key = localStorage.getItem('gemini_api_key') || '';
+    document.getElementById('apiKeyInput').value = key;
+    if (key) {
+      const btn = document.getElementById('saveKeyBtn');
+      btn.textContent = 'Saved ✓';
+      btn.classList.add('saved');
+    }
+  }
+
+  function saveApiKey() {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    localStorage.setItem('gemini_api_key', key);
+    const btn = document.getElementById('saveKeyBtn');
+    btn.textContent = 'Saved ✓';
+    btn.classList.add('saved');
+    setTimeout(() => { btn.textContent = 'Save'; btn.classList.remove('saved'); }, 2000);
+  }
+
+  // --- Core ---
+  function catColor(cat) {
+    const idx = data.categories.indexOf(cat);
+    return PALETTE[idx % PALETTE.length];
+  }
+
+  function save() {
+    localStorage.setItem('thoughts_app', JSON.stringify(data));
+  }
+
+  function renderCategories() {
+    const el = document.getElementById('categories');
+    el.innerHTML = '';
+    data.categories.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.className = 'cat-btn' + (selectedCat === cat ? ' active' : '');
+      btn.style.setProperty('--color', catColor(cat));
+      btn.textContent = cat;
+      btn.onclick = () => selectCat(cat);
+      el.appendChild(btn);
+    });
+    updateSaveBtn();
+  }
+
+  function renderFilters() {
+    const el = document.getElementById('filterRow');
+    el.innerHTML = '';
+
+    const all = document.createElement('button');
+    all.className = 'filter-btn' + (filterCat === 'all' ? ' active' : '');
+    all.style.setProperty('--color', '#4a9eff');
+    all.textContent = 'All';
+    all.onclick = () => { filterCat = 'all'; renderFilters(); renderThoughts(); };
+    el.appendChild(all);
+
+    data.categories.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.className = 'filter-btn' + (filterCat === cat ? ' active' : '');
+      btn.style.setProperty('--color', catColor(cat));
+      btn.textContent = cat;
+      btn.onclick = () => { filterCat = cat; renderFilters(); renderThoughts(); };
+      el.appendChild(btn);
+    });
+  }
+
+  function renderThoughts() {
+    const el = document.getElementById('thoughtsList');
+    const list = filterCat === 'all'
+      ? [...data.thoughts].reverse()
+      : [...data.thoughts].filter(t => t.cat === filterCat).reverse();
+
+    if (list.length === 0) {
+      el.innerHTML = '<div class="empty-state">No thoughts yet</div>';
+      return;
+    }
+
+    el.innerHTML = '';
+    list.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'thought-card';
+      card.style.setProperty('--color', catColor(t.cat));
+
+      const date = new Date(t.ts).toLocaleDateString(undefined, {
+        month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+
+      card.innerHTML = `
+        <div class="thought-meta">
+          <span class="thought-cat-label">${t.cat}</span>
+          <span style="display:flex;align-items:center;gap:4px;">
+            <span>${date}</span>
+            <button class="delete-btn" onclick="deleteThought('${t.id}')" title="Delete">×</button>
+          </span>
+        </div>
+        <div class="thought-text">${escHtml(t.text)}</div>
+      `;
+      el.appendChild(card);
+    });
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function selectCat(cat) {
+    selectedCat = selectedCat === cat ? null : cat;
+    renderCategories();
+  }
+
+  function updateSaveBtn() {
+    const btn = document.getElementById('saveBtn');
+    const hasText = document.getElementById('thoughtInput').value.trim().length > 0;
+    btn.disabled = !(selectedCat && hasText);
+    btn.style.background = (selectedCat && hasText) ? catColor(selectedCat) : '';
+  }
+
+  function saveThought() {
+    const text = document.getElementById('thoughtInput').value.trim();
+    if (!text || !selectedCat) return;
+
+    data.thoughts.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+      cat: selectedCat,
+      text,
+      ts: Date.now()
+    });
+
+    save();
+    document.getElementById('thoughtInput').value = '';
+    updateSaveBtn();
+    renderThoughts();
+    renderFilters();
+  }
+
+  function deleteThought(id) {
+    data.thoughts = data.thoughts.filter(t => t.id !== id);
+    save();
+    renderThoughts();
+    renderFilters();
+  }
+
+  function addCategory() {
+    const input = document.getElementById('newCatInput');
+    const name = input.value.trim();
+    if (!name || data.categories.includes(name)) { input.focus(); return; }
+    data.categories.push(name);
+    save();
+    input.value = '';
+    renderCategories();
+    renderFilters();
+  }
+
+  document.getElementById('newCatInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addCategory();
+  });
+
+  document.getElementById('thoughtInput').addEventListener('input', updateSaveBtn);
+
+  // --- Gemini transcription via MediaRecorder ---
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let isRecording = false;
+
+  const micBtn = document.getElementById('micBtn');
+  const micStatus = document.getElementById('micStatus');
+
+  function setMicStatus(msg, isError) {
+    micStatus.textContent = msg;
+    micStatus.className = isError ? 'error' : '';
+  }
+
+  async function toggleMic() {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      await startRecording();
+    }
+  }
+
+  async function startRecording() {
+    const apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) {
+      setMicStatus('Add your Gemini API key above first', true);
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+
+      // Pick best supported format
+      const mimeType = ['audio/webm', 'audio/mp4', 'audio/ogg']
+        .find(m => MediaRecorder.isTypeSupported(m)) || '';
+
+      mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+      mediaRecorder.onstop = () => { stream.getTracks().forEach(t => t.stop()); transcribe(); };
+      mediaRecorder.start();
+
+      isRecording = true;
+      micBtn.classList.add('recording');
+      micBtn.textContent = '⏹';
+      setMicStatus('Recording... tap to stop');
+    } catch (err) {
+      setMicStatus('Mic access denied', true);
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    micBtn.classList.add('transcribing');
+    micBtn.textContent = '⏳';
+    setMicStatus('Transcribing...');
+  }
+
+  async function transcribe() {
+    const apiKey = localStorage.getItem('gemini_api_key');
+    const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+
+    // Convert blob to base64
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    const mimeType = blob.type.split(';')[0] || 'audio/webm';
+
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: 'Transcribe this audio exactly as spoken. Return only the transcribed text, nothing else.' },
+                { inline_data: { mime_type: mimeType, data: base64 } }
+              ]
+            }]
+          })
+        }
+      );
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        const msg = json?.error?.message || 'API error';
+        setMicStatus(msg, true);
+      } else {
+        const transcribed = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+        if (transcribed) {
+          const ta = document.getElementById('thoughtInput');
+          const existing = ta.value.trim();
+          ta.value = existing ? existing + ' ' + transcribed : transcribed;
+          updateSaveBtn();
+          setMicStatus('');
+        } else {
+          setMicStatus('Nothing heard — try again', true);
+        }
+      }
+    } catch (err) {
+      setMicStatus('Network error', true);
+    }
+
+    micBtn.classList.remove('transcribing');
+    micBtn.textContent = '🎤';
+  }
+
+  // Init
+  loadApiKey();
+  renderCategories();
+  renderFilters();
+  renderThoughts();
+</script>
+</body>
+</html>
