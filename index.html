@@ -162,6 +162,30 @@
     #saveKeyBtn:active { transform: scale(0.95); }
     #saveKeyBtn.saved { border-color: #4aff9e; color: #4aff9e; }
 
+    #bannerCollapsed {
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #bannerCollapsed span {
+      font-size: 13px;
+      color: #4aff9e;
+      font-weight: 600;
+    }
+
+    #editKeyBtn {
+      background: none;
+      border: none;
+      color: #555;
+      font-size: 13px;
+      cursor: pointer;
+      padding: 4px 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #editKeyBtn:active { color: #aaa; }
+
     /* Categories */
     .categories {
       display: flex;
@@ -466,10 +490,16 @@
 
   <!-- Gemini API key -->
   <div id="apiBanner">
-    <div class="banner-label">Gemini API Key</div>
-    <div class="banner-row">
-      <input type="password" id="apiKeyInput" placeholder="Paste your API key...">
-      <button id="saveKeyBtn" onclick="saveApiKey()">Save</button>
+    <div id="bannerExpanded">
+      <div class="banner-label">Gemini API Key</div>
+      <div class="banner-row">
+        <input type="password" id="apiKeyInput" placeholder="Paste your API key..." autocomplete="off">
+        <button id="saveKeyBtn" onclick="saveApiKey()">Save</button>
+      </div>
+    </div>
+    <div id="bannerCollapsed">
+      <span>🔑 API Key saved</span>
+      <button id="editKeyBtn" onclick="editApiKey()">Change</button>
     </div>
   </div>
 
@@ -516,21 +546,28 @@
   // --- API Key ---
   function loadApiKey() {
     const key = localStorage.getItem('gemini_api_key') || '';
-    document.getElementById('apiKeyInput').value = key;
     if (key) {
-      const btn = document.getElementById('saveKeyBtn');
-      btn.textContent = 'Saved ✓';
-      btn.classList.add('saved');
+      showBannerCollapsed();
     }
   }
 
   function saveApiKey() {
     const key = document.getElementById('apiKeyInput').value.trim();
+    if (!key) return;
     localStorage.setItem('gemini_api_key', key);
-    const btn = document.getElementById('saveKeyBtn');
-    btn.textContent = 'Saved ✓';
-    btn.classList.add('saved');
-    setTimeout(() => { btn.textContent = 'Save'; btn.classList.remove('saved'); }, 2000);
+    document.getElementById('apiKeyInput').value = '';
+    showBannerCollapsed();
+  }
+
+  function editApiKey() {
+    document.getElementById('bannerCollapsed').style.display = 'none';
+    document.getElementById('bannerExpanded').style.display = 'block';
+    document.getElementById('apiKeyInput').focus();
+  }
+
+  function showBannerCollapsed() {
+    document.getElementById('bannerExpanded').style.display = 'none';
+    document.getElementById('bannerCollapsed').style.display = 'flex';
   }
 
   // --- Core ---
@@ -749,7 +786,7 @@
 
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
