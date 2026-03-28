@@ -452,6 +452,99 @@
       border-top: 1px solid #222;
       margin: 24px 0;
     }
+
+    /* Organise button */
+    #organiseBtn {
+      width: 100%;
+      padding: 20px;
+      border-radius: 20px;
+      border: 2px solid #333;
+      background: #1a1a1a;
+      color: #c44aff;
+      font-size: 20px;
+      font-weight: 700;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, transform 0.1s;
+      margin-bottom: 30px;
+    }
+
+    #organiseBtn:active { transform: scale(0.97); background: #222; }
+    #organiseBtn:disabled { color: #444; border-color: #222; cursor: default; }
+
+    /* Organise modal */
+    #organiseModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 998;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    #organiseModal.open { display: flex; flex-direction: column; }
+
+    .modal-inner {
+      background: #1a1a1a;
+      border-radius: 24px;
+      padding: 24px;
+      width: 100%;
+      max-width: 600px;
+      margin: auto;
+      flex-shrink: 0;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-header h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #c44aff;
+    }
+
+    #closeModal {
+      background: #2a2a2a;
+      border: none;
+      color: #aaa;
+      font-size: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #closeModal:active { background: #333; }
+
+    #organiseResult {
+      font-size: 16px;
+      line-height: 1.7;
+      color: #ddd;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    #organiseResult .loading {
+      text-align: center;
+      color: #555;
+      padding: 40px 0;
+      font-size: 18px;
+    }
+
+    /* Simple markdown rendering */
+    #organiseResult h2, #organiseResult h3 {
+      color: #fff;
+      margin: 16px 0 8px;
+    }
+
+    #organiseResult strong { color: #fff; }
+    #organiseResult em { color: #c44aff; font-style: normal; }
   </style>
 </head>
 <body>
@@ -522,12 +615,26 @@
 
   <hr class="divider">
 
+  <!-- Organise -->
+  <button id="organiseBtn" onclick="organiseThoughts()">✨ Organise My Thoughts</button>
+
   <!-- Thoughts list -->
   <div class="section-title">Saved Thoughts</div>
   <div class="filter-row" id="filterRow"></div>
   <div class="thoughts-list" id="thoughtsList"></div>
 
   </div><!-- end #app -->
+
+  <!-- Organise modal -->
+  <div id="organiseModal">
+    <div class="modal-inner">
+      <div class="modal-header">
+        <h2>✨ Organise My Thoughts</h2>
+        <button id="closeModal" onclick="closeOrganise()">×</button>
+      </div>
+      <div id="organiseResult"></div>
+    </div>
+  </div>
 
 <script>
   const PALETTE = [
@@ -824,6 +931,67 @@
 
     micBtn.classList.remove('transcribing');
     micBtn.textContent = '🎤';
+  }
+
+  // --- Organise My Thoughts ---
+  async function organiseThoughts() {
+    if (data.thoughts.length === 0) return;
+
+    const apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) { alert('Add your Gemini API key first.'); return; }
+
+    // Open modal with loading state
+    document.getElementById('organiseModal').classList.add('open');
+    document.getElementById('organiseResult').innerHTML = '<div class="loading">Thinking...</div>';
+
+    // Build thought list for the prompt
+    const thoughtText = data.thoughts.map(t =>
+      `[${t.cat}] ${t.text}`
+    ).join('\n');
+
+    const prompt = `Here are my personal thoughts, each tagged with a category:\n\n${thoughtText}\n\nPlease analyse these and give me:\n1. **Key Themes** — what's really on my mind\n2. **Patterns** — anything recurring or connected\n3. **Actionable Items** — anything I should actually do\n4. **One Insight** — something I might not have noticed myself\n\nBe direct, warm, and concise. No fluff.`;
+
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        }
+      );
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        document.getElementById('organiseResult').textContent = json?.error?.message || 'API error';
+        return;
+      }
+
+      const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text || 'No response.';
+      document.getElementById('organiseResult').innerHTML = renderMarkdown(raw);
+
+    } catch (err) {
+      document.getElementById('organiseResult').textContent = 'Network error — try again.';
+    }
+  }
+
+  function closeOrganise() {
+    document.getElementById('organiseModal').classList.remove('open');
+  }
+
+  // Basic markdown → HTML (bold, headings, bullets)
+  function renderMarkdown(text) {
+    return text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/^[\-\*] (.+)$/gm, '• $1')
+      .replace(/\n{2,}/g, '\n\n');
   }
 
   // --- PIN ---
