@@ -1002,14 +1002,14 @@
   let pinEntry = '';
   const PIN_KEY = 'thoughts_pin';
 
-  function pinPress(digit) {
+  window.pinPress = function(digit) {
     if (pinEntry.length >= 4) return;
     pinEntry += digit;
     updatePinDots();
     if (pinEntry.length === 4) setTimeout(checkPin, 80);
   }
 
-  function pinDelete() {
+  window.pinDelete = function() {
     pinEntry = pinEntry.slice(0, -1);
     updatePinDots();
     document.getElementById('pinError').textContent = '';
