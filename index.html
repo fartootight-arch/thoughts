@@ -636,41 +636,50 @@
     </div>
   </div>
 
-<script>
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getFirestore, collection, doc, addDoc, deleteDoc, onSnapshot, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDiu51QCp3RW9JWkzziDMFtK96kS02QeHk",
+    authDomain: "familyvault-ffea8.firebaseapp.com",
+    projectId: "familyvault-ffea8",
+    storageBucket: "familyvault-ffea8.firebasestorage.app",
+    messagingSenderId: "142896317420",
+    appId: "1:142896317420:web:9406c5eb75fcfeaaeef6c9"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
   const PALETTE = [
     '#4a9eff', '#ff6b4a', '#4aff9e', '#ffb84a',
     '#c44aff', '#ff4a9e', '#4affee', '#ffd44a'
   ];
 
-  let data = JSON.parse(localStorage.getItem('thoughts_app') || 'null') || {
-    categories: ['Idea', 'Feeling', 'Todo', 'Random'],
-    thoughts: []
-  };
-
+  let thoughts = [];
+  let categories = ['Idea', 'Feeling', 'Todo', 'Random'];
   let selectedCat = null;
   let filterCat = 'all';
 
-  // --- API Key ---
+  // --- API Key (stays local, device-specific is fine) ---
   function loadApiKey() {
-    const key = localStorage.getItem('gemini_api_key') || '';
-    if (key) {
-      showBannerCollapsed();
-    }
+    if (localStorage.getItem('gemini_api_key')) showBannerCollapsed();
   }
 
-  function saveApiKey() {
+  window.saveApiKey = function() {
     const key = document.getElementById('apiKeyInput').value.trim();
     if (!key) return;
     localStorage.setItem('gemini_api_key', key);
     document.getElementById('apiKeyInput').value = '';
     showBannerCollapsed();
-  }
+  };
 
-  function editApiKey() {
+  window.editApiKey = function() {
     document.getElementById('bannerCollapsed').style.display = 'none';
     document.getElementById('bannerExpanded').style.display = 'block';
     document.getElementById('apiKeyInput').focus();
-  }
+  };
 
   function showBannerCollapsed() {
     document.getElementById('bannerExpanded').style.display = 'none';
@@ -679,18 +688,14 @@
 
   // --- Core ---
   function catColor(cat) {
-    const idx = data.categories.indexOf(cat);
+    const idx = categories.indexOf(cat);
     return PALETTE[idx % PALETTE.length];
-  }
-
-  function save() {
-    localStorage.setItem('thoughts_app', JSON.stringify(data));
   }
 
   function renderCategories() {
     const el = document.getElementById('categories');
     el.innerHTML = '';
-    data.categories.forEach(cat => {
+    categories.forEach(cat => {
       const btn = document.createElement('button');
       btn.className = 'cat-btn' + (selectedCat === cat ? ' active' : '');
       btn.style.setProperty('--color', catColor(cat));
@@ -712,7 +717,7 @@
     all.onclick = () => { filterCat = 'all'; renderFilters(); renderThoughts(); };
     el.appendChild(all);
 
-    data.categories.forEach(cat => {
+    categories.forEach(cat => {
       const btn = document.createElement('button');
       btn.className = 'filter-btn' + (filterCat === cat ? ' active' : '');
       btn.style.setProperty('--color', catColor(cat));
@@ -724,9 +729,8 @@
 
   function renderThoughts() {
     const el = document.getElementById('thoughtsList');
-    const list = filterCat === 'all'
-      ? [...data.thoughts].reverse()
-      : [...data.thoughts].filter(t => t.cat === filterCat).reverse();
+    const list = (filterCat === 'all' ? [...thoughts] : thoughts.filter(t => t.cat === filterCat))
+      .sort((a, b) => b.ts - a.ts);
 
     if (list.length === 0) {
       el.innerHTML = '<div class="empty-state">No thoughts yet</div>';
@@ -749,11 +753,12 @@
           <span class="thought-cat-label">${t.cat}</span>
           <span style="display:flex;align-items:center;gap:4px;">
             <span>${date}</span>
-            <button class="delete-btn" onclick="deleteThought('${t.id}')" title="Delete">×</button>
+            <button class="delete-btn" data-id="${t.id}" title="Delete">×</button>
           </span>
         </div>
         <div class="thought-text">${escHtml(t.text)}</div>
       `;
+      card.querySelector('.delete-btn').onclick = () => deleteThought(t.id);
       el.appendChild(card);
     });
   }
@@ -774,44 +779,47 @@
     btn.style.background = (selectedCat && hasText) ? catColor(selectedCat) : '';
   }
 
-  function saveThought() {
+  // --- Firestore operations ---
+  window.saveThought = async function() {
     const text = document.getElementById('thoughtInput').value.trim();
     if (!text || !selectedCat) return;
-
-    data.thoughts.push({
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
-      cat: selectedCat,
-      text,
-      ts: Date.now()
-    });
-
-    save();
     document.getElementById('thoughtInput').value = '';
     updateSaveBtn();
-    renderThoughts();
-    renderFilters();
+    await addDoc(collection(db, 'thoughts'), { cat: selectedCat, text, ts: Date.now() });
+  };
+
+  async function deleteThought(id) {
+    await deleteDoc(doc(db, 'thoughts', id));
   }
 
-  function deleteThought(id) {
-    data.thoughts = data.thoughts.filter(t => t.id !== id);
-    save();
-    renderThoughts();
-    renderFilters();
-  }
-
-  function addCategory() {
+  window.addCategory = async function() {
     const input = document.getElementById('newCatInput');
     const name = input.value.trim();
-    if (!name || data.categories.includes(name)) { input.focus(); return; }
-    data.categories.push(name);
-    save();
+    if (!name || categories.includes(name)) { input.focus(); return; }
+    categories = [...categories, name];
     input.value = '';
+    await setDoc(doc(db, 'meta', 'config'), { categories });
     renderCategories();
     renderFilters();
+  };
+
+  async function loadCategories() {
+    const snap = await getDoc(doc(db, 'meta', 'config'));
+    if (snap.exists()) categories = snap.data().categories;
+    else await setDoc(doc(db, 'meta', 'config'), { categories });
+  }
+
+  // Real-time thoughts listener
+  function subscribeThoughts() {
+    onSnapshot(collection(db, 'thoughts'), snap => {
+      thoughts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderThoughts();
+      renderFilters();
+    });
   }
 
   document.getElementById('newCatInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') addCategory();
+    if (e.key === 'Enter') window.addCategory();
   });
 
   document.getElementById('thoughtInput').addEventListener('input', updateSaveBtn);
@@ -829,13 +837,13 @@
     micStatus.className = isError ? 'error' : '';
   }
 
-  async function toggleMic() {
+  window.toggleMic = async function() {
     if (isRecording) {
       stopRecording();
     } else {
       await startRecording();
     }
-  }
+  };
 
   async function startRecording() {
     const apiKey = localStorage.getItem('gemini_api_key');
@@ -934,20 +942,16 @@
   }
 
   // --- Organise My Thoughts ---
-  async function organiseThoughts() {
-    if (data.thoughts.length === 0) return;
+  window.organiseThoughts = async function() {
+    if (thoughts.length === 0) return;
 
     const apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) { alert('Add your Gemini API key first.'); return; }
 
-    // Open modal with loading state
     document.getElementById('organiseModal').classList.add('open');
     document.getElementById('organiseResult').innerHTML = '<div class="loading">Thinking...</div>';
 
-    // Build thought list for the prompt
-    const thoughtText = data.thoughts.map(t =>
-      `[${t.cat}] ${t.text}`
-    ).join('\n');
+    const thoughtText = thoughts.map(t => `[${t.cat}] ${t.text}`).join('\n');
 
     const prompt = `Here are my personal thoughts, each tagged with a category:\n\n${thoughtText}\n\nPlease analyse these and give me:\n1. **Key Themes** — what's really on my mind\n2. **Patterns** — anything recurring or connected\n3. **Actionable Items** — anything I should actually do\n4. **One Insight** — something I might not have noticed myself\n\nBe direct, warm, and concise. No fluff.`;
 
@@ -978,9 +982,9 @@
     }
   }
 
-  function closeOrganise() {
+  window.closeOrganise = function() {
     document.getElementById('organiseModal').classList.remove('open');
-  }
+  };
 
   // Basic markdown → HTML (bold, headings, bullets)
   function renderMarkdown(text) {
@@ -1060,11 +1064,12 @@
     initApp();
   }
 
-  function initApp() {
+  async function initApp() {
     loadApiKey();
+    await loadCategories();
     renderCategories();
     renderFilters();
-    renderThoughts();
+    subscribeThoughts();
   }
 
   // Show correct PIN prompt on load
