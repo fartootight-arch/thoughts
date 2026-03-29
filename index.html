@@ -639,7 +639,7 @@
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
   import { getFirestore, collection, doc, addDoc, deleteDoc, onSnapshot, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-  import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
   const firebaseConfig = {
     apiKey: "AIzaSyDiu51QCp3RW9JWkzziDMFtK96kS02QeHk",
@@ -653,6 +653,7 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
   const auth = getAuth(app);
+  const googleProvider = new GoogleAuthProvider();
 
   const PALETTE = [
     '#4a9eff', '#ff6b4a', '#4aff9e', '#ffb84a',
@@ -1066,8 +1067,21 @@
     initApp();
   }
 
+  async function getOrSignIn() {
+    return new Promise((resolve) => {
+      const unsub = onAuthStateChanged(auth, async (user) => {
+        unsub();
+        if (user) { resolve(user); }
+        else {
+          const result = await signInWithPopup(auth, googleProvider);
+          resolve(result.user);
+        }
+      });
+    });
+  }
+
   async function initApp() {
-    await signInAnonymously(auth);
+    await getOrSignIn();
     loadApiKey();
     await loadCategories();
     renderCategories();
