@@ -4,11 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>Thoughts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    /* ── Design system tokens ──────────────────────── */
+    :root {
+      --brand:        #f97316;
+      --brand-dark:   #ea6c0a;
+      --brand-glow:   rgba(249,115,22,0.15);
+      --nav-height:   52px;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: #0f0f0f;
       color: #f0f0f0;
       min-height: 100vh;
@@ -57,8 +67,8 @@
     }
 
     .pin-dot.filled {
-      background: #4a9eff;
-      border-color: #4a9eff;
+      background: var(--brand);
+      border-color: var(--brand);
     }
 
     .pin-dot.error {
@@ -106,6 +116,7 @@
       margin-bottom: 20px;
       color: #fff;
       letter-spacing: -0.5px;
+      padding-top: calc(var(--nav-height) + 8px);
     }
 
     /* API key banner */
@@ -336,7 +347,7 @@
       padding: 20px;
       border-radius: 20px;
       border: none;
-      background: #4a9eff;
+      background: var(--brand);
       color: #fff;
       font-size: 20px;
       font-weight: 700;
@@ -546,8 +557,57 @@
     #organiseResult strong { color: #fff; }
     #organiseResult em { color: #c44aff; font-style: normal; }
   </style>
+  <style>
+    /* ── Global nav bar ───────────────────────────── */
+    .jason-nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 9999;
+      height: var(--nav-height);
+      background: rgba(10,10,10,0.90);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 4px;
+    }
+    .jason-nav__logo {
+      display: flex; align-items: center; gap: 8px;
+      font-weight: 700; font-size: 13px; color: #f5f5f5;
+      text-decoration: none; margin-right: 12px;
+    }
+    .jason-nav__logo-icon {
+      width: 28px; height: 28px;
+      background: #f97316;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .jason-nav__link {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 10px; border-radius: 6px;
+      font-size: 13px; font-weight: 500;
+      color: #a3a3a3; text-decoration: none;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .jason-nav__link:hover { background: #1f1f1f; color: #f5f5f5; }
+    .jason-nav__link--active { background: rgba(249,115,22,0.15); color: #f97316; }
+  </style>
 </head>
 <body>
+  <!-- Global nav bar -->
+  <nav class="jason-nav">
+    <a href="http://localhost:8888" class="jason-nav__logo">
+      <div class="jason-nav__logo-icon">🏠</div>
+      Hub
+    </a>
+    <a href="http://localhost:3000" class="jason-nav__link">🍽️ Foody</a>
+    <a href="http://localhost:3001" class="jason-nav__link jason-nav__link--active">💭 Thoughts</a>
+    <a href="http://localhost:8081" class="jason-nav__link">🔐 FamilyVault</a>
+  </nav>
 
   <!-- PIN screen -->
   <div id="pinScreen">
