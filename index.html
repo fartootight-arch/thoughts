@@ -17,6 +17,11 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* ── Mobile touch: eliminate 300ms tap delay on all interactive elements ── */
+    button, a, input, textarea, select {
+      touch-action: manipulation;
+    }
+
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: #0f0f0f;
@@ -36,7 +41,7 @@
       align-items: center;
       justify-content: center;
       gap: 24px;
-      z-index: 999;
+      z-index: 10001; /* above nav (9999) so nav can't intercept touches */
       padding: 32px;
     }
 
@@ -95,13 +100,14 @@
       cursor: pointer;
       text-align: center;
       -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
       user-select: none;
       transition: background 0.1s, transform 0.1s;
     }
 
     .pin-key:active { background: #2a2a2a; transform: scale(0.94); }
     .pin-key.del { font-size: 20px; color: #aaa; }
-    .pin-key.empty { visibility: hidden; }
+    .pin-key.empty { visibility: hidden; pointer-events: none; }
 
     #pinError {
       font-size: 14px;
@@ -595,21 +601,48 @@
     }
     .jason-nav__link:hover { background: #1f1f1f; color: #f5f5f5; }
     .jason-nav__link--active { background: rgba(249,115,22,0.15); color: #f97316; }
+    @media (max-width: 480px) {
+      .jason-nav {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 0;
+        padding: 0 6px;
+      }
+      .jason-nav__link, .jason-nav__logo {
+        font-size: 10px;
+        padding: 2px 5px;
+        flex-shrink: 0;
+        gap: 3px;
+      }
+      .jason-nav__logo-icon { width: 20px; height: 20px; font-size: 11px; }
+    }
   </style>
 </head>
 <body>
   <!-- Global nav bar -->
   <nav class="jason-nav">
-    <a href="http://localhost:8888" class="jason-nav__logo">
+    <a href="#" class="jason-nav__logo" id="nav-hub">
       <div class="jason-nav__logo-icon">🏠</div>
       Hub
     </a>
-    <a href="http://localhost:3000" class="jason-nav__link">🍽️ Foody</a>
-    <a href="http://localhost:3001" class="jason-nav__link jason-nav__link--active">💭 Thoughts</a>
+    <a href="#" class="jason-nav__link" id="nav-foody">🍽️ Foody</a>
+    <a href="#" class="jason-nav__link jason-nav__link--active" id="nav-thoughts">💭 Thoughts</a>
     <a href="https://familyvault-ffea8.web.app/" class="jason-nav__link" target="_blank">🔐 FamilyVault</a>
-    <a href="http://localhost:3002" class="jason-nav__link" target="_blank">🤖 AI Power</a>
-    <a href="http://localhost:8001" class="jason-nav__link" target="_blank">💼 Job Tracker</a>
+    <a href="#" class="jason-nav__link" target="_blank" id="nav-aipower">🤖 AI Power</a>
+    <a href="#" class="jason-nav__link" target="_blank" id="nav-jobtracker">💼 Job Tracker</a>
+    <a href="#" class="jason-nav__link" target="_blank" id="nav-gcse">🎓 GCSE Tutor</a>
   </nav>
+  <script>
+    (function () {
+      var h = window.location.hostname;
+      document.getElementById('nav-hub').href        = 'http://' + h + ':8888';
+      document.getElementById('nav-foody').href      = 'http://' + h + ':3000';
+      document.getElementById('nav-thoughts').href   = 'http://' + h + ':3001';
+      document.getElementById('nav-aipower').href    = 'http://' + h + ':3002';
+      document.getElementById('nav-jobtracker').href = 'http://' + h + ':8001';
+      document.getElementById('nav-gcse').href       = 'http://' + h + ':8501';
+    })();
+  </script>
 
   <!-- PIN screen -->
   <div id="pinScreen">
@@ -701,7 +734,7 @@
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
   import { getFirestore, collection, doc, addDoc, deleteDoc, onSnapshot, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
   const firebaseConfig = {
     apiKey: "AIzaSyDiu51QCp3RW9JWkzziDMFtK96kS02QeHk",
@@ -1129,14 +1162,46 @@
     initApp();
   }
 
+  // If returning from a mobile Google auth redirect, skip PIN and go straight in
+  if (sessionStorage.getItem('pending_init') === '1') {
+    sessionStorage.removeItem('pending_init');
+    onAuthStateChanged(auth, user => {
+      if (user) unlock();
+    });
+  }
+
+  // Handle return from mobile redirect sign-in (fires on page reload after redirect)
+  getRedirectResult(auth).then(result => {
+    if (result?.user) {
+      // Came back from Google redirect on mobile — if PIN was already solved store a
+      // flag so initApp doesn't need to sign in again (onAuthStateChanged will fire).
+      sessionStorage.setItem('auth_redirect_done', '1');
+    }
+  }).catch(() => {});
+
   async function getOrSignIn() {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const unsub = onAuthStateChanged(auth, async (user) => {
         unsub();
-        if (user) { resolve(user); }
-        else {
+        if (user) { resolve(user); return; }
+
+        // Not signed in — try popup first (works on desktop)
+        try {
           const result = await signInWithPopup(auth, googleProvider);
           resolve(result.user);
+        } catch (err) {
+          // On mobile, popups are blocked — fall back to redirect
+          const mobileBlocked = err.code === 'auth/popup-blocked'
+            || err.code === 'auth/popup-closed-by-user'
+            || err.code === 'auth/cancelled-popup-request';
+          if (mobileBlocked) {
+            // Store the fact we need to re-init after redirect comes back
+            sessionStorage.setItem('pending_init', '1');
+            await signInWithRedirect(auth, googleProvider);
+            // Page will reload; onAuthStateChanged will fire with the user on return
+          } else {
+            reject(err);
+          }
         }
       });
     });
